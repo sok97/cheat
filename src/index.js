@@ -22,7 +22,7 @@ app.whenReady().then(async () => {
     // Trigger screen recording permission prompt on macOS if not already granted
     if (process.platform === 'darwin') {
         const { desktopCapturer } = require('electron');
-        desktopCapturer.getSources({ types: ['screen'] }).catch(() => {});
+        desktopCapturer.getSources({ types: ['screen'] }).catch(() => { });
     }
 
     createMainWindow();
