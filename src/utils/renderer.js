@@ -550,10 +550,11 @@ async function captureScreenshot(imageQuality = 'medium', isManual = false) {
     );
 }
 
-const MANUAL_SCREENSHOT_PROMPT = `Help me on this page, give me the answer no bs, complete answer.
-So if its a code question, give me the approach in few bullet points, then the entire code. Also if theres anything else i need to know, tell me.
-If its a question about the website, give me the answer no bs, complete answer.
-If its a mcq question, give me the answer no bs, complete answer.`;
+const MANUAL_SCREENSHOT_PROMPT = `Analyze the image and provide only the direct, correct answer immediately. No fluff, no introductory filler.
+- If code: provide the minimal, correct code snippet immediately. No long explanations.
+- If MCQ: give only the correct option and a 1-sentence reason.
+- Otherwise: just the direct answer.
+Be as concise and fast as possible.`;
 
 async function captureManualScreenshot(imageQuality = null) {
     console.log('Manual screenshot triggered');
@@ -590,8 +591,8 @@ async function captureManualScreenshot(imageQuality = null) {
         return;
     }
 
-    // Downscale to max 1280px wide for faster transfer — vision models don't need 4K
-    const MAX_WIDTH = 1280;
+    // Downscale to max 800px wide for faster transfer — vision models don't need 4K
+    const MAX_WIDTH = 800;
     const srcW = hiddenVideo.videoWidth;
     const srcH = hiddenVideo.videoHeight;
     let destW = srcW;
@@ -607,16 +608,16 @@ async function captureManualScreenshot(imageQuality = null) {
     let qualityValue;
     switch (quality) {
         case 'high':
-            qualityValue = 0.85;
+            qualityValue = 0.7; // Lowered from 0.85 to save bandwidth
             break;
         case 'medium':
-            qualityValue = 0.6;
+            qualityValue = 0.5; // Lowered from 0.6
             break;
         case 'low':
-            qualityValue = 0.4;
+            qualityValue = 0.3; // Lowered from 0.4
             break;
         default:
-            qualityValue = 0.6;
+            qualityValue = 0.5;
     }
 
     offscreenCanvas.toBlob(

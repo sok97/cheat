@@ -271,7 +271,7 @@ async function sendToGroq(transcription) {
                 ],
                 stream: true,
                 temperature: 0.7,
-                max_tokens: 1024
+                max_tokens: 500  // FIX 5: was 1024 — shorter = faster first token
             })
         });
 
@@ -286,6 +286,7 @@ async function sendToGroq(transcription) {
         const decoder = new TextDecoder();
         let fullText = '';
         let isFirst = true;
+        let flushTimer = null; // FIX 1: throttle IPC sends
 
         while (true) {
             const { done, value } = await reader.read();
@@ -304,10 +305,16 @@ async function sendToGroq(transcription) {
                         const token = json.choices?.[0]?.delta?.content || '';
                         if (token) {
                             fullText += token;
-                            const displayText = stripThinkingTags(fullText);
-                            if (displayText) {
-                                sendToRenderer(isFirst ? 'new-response' : 'update-response', displayText);
-                                isFirst = false;
+                            // FIX 1: batch IPC sends every 50ms instead of per token
+                            if (!flushTimer) {
+                                flushTimer = setTimeout(() => {
+                                    flushTimer = null;
+                                    const display = stripThinkingTags(fullText);
+                                    if (display) {
+                                        sendToRenderer(isFirst ? 'new-response' : 'update-response', display);
+                                        isFirst = false;
+                                    }
+                                }, 50);
                             }
                         }
                     } catch (parseError) {
@@ -317,6 +324,8 @@ async function sendToGroq(transcription) {
             }
         }
 
+        // FIX 1: final flush after stream ends
+        if (flushTimer) clearTimeout(flushTimer);
         const cleanedResponse = stripThinkingTags(fullText);
         const modelKey = modelToUse.split('/').pop();
 
@@ -388,14 +397,27 @@ async function sendToGemma(transcription) {
 
         let fullText = '';
         let isFirst = true;
+        let flushTimer = null; // FIX 2: throttle IPC sends
 
         for await (const chunk of response) {
             const chunkText = chunk.text;
             if (chunkText) {
                 fullText += chunkText;
-                sendToRenderer(isFirst ? 'new-response' : 'update-response', fullText);
-                isFirst = false;
+                // FIX 2: batch IPC sends every 50ms instead of per chunk
+                if (!flushTimer) {
+                    flushTimer = setTimeout(() => {
+                        flushTimer = null;
+                        sendToRenderer(isFirst ? 'new-response' : 'update-response', fullText);
+                        isFirst = false;
+                    }, 50);
+                }
             }
+        }
+
+        // FIX 2: final flush after stream ends
+        if (flushTimer) clearTimeout(flushTimer);
+        if (fullText) {
+            sendToRenderer('update-response', fullText);
         }
 
         const systemPromptChars = (currentSystemPrompt || 'You are a helpful assistant.').length;
